@@ -1,0 +1,31 @@
+version: '2'
+services:
+    payments-app:
+        image: payments
+        environment:
+            # - _JAVA_OPTIONS=-Xmx512m -Xms256m
+            - SPRING_PROFILES_ACTIVE=prod,swagger
+            - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://admin:$${payments.registry.password}@payments-registry:8761/eureka
+            - SPRING_CLOUD_CONFIG_URI=http://admin:$${payments.registry.password}@payments-registry:8761/config
+            - SPRING_DATA_CASSANDRA_CONTACTPOINTS=payments-cassandra
+            - PAYMENTS_SLEEP=30 # gives time for the Cassandra cluster to start and execute the migration scripts
+    payments-cassandra:
+        extends:
+            file: cassandra-cluster.yml
+            service: payments-cassandra
+    payments-cassandra-node:
+        image: cassandra:3.9
+        environment:
+            - CASSANDRA_SEEDS=payments-cassandra
+    payments-cassandra-migration:
+        extends:
+            file: cassandra-migration.yml
+            service: payments-cassandra-migration
+        environment:
+            - CREATE_KEYSPACE_SCRIPT=create-keyspace-prod.cql
+    payments-registry:
+        extends:
+            file: payments-registry.yml
+            service: payments-registry
+        environment:
+            - SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS=file:./central-config/docker-config/
